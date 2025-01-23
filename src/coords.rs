@@ -3,6 +3,8 @@ use std::f64::consts::PI;
 use std::iter::zip;
 use core::fmt::Display;
 
+use super::geometry::GreatCircle;
+
 #[derive(PartialEq,Clone,Copy)]
 pub struct Coordinate{
     pub phi:f64,
@@ -52,9 +54,6 @@ impl Coordinate{
         let cross = self.cross(other).unwrap();
         let (x,y,z) = cross.cart().unwrap();
         (x*x + y*y + z*z).sqrt()
-    }
-    pub fn dist(self:&Coordinate,other:&Coordinate)->f64 {
-        self.dot(other).unwrap().acos()
     }
     pub fn angle_between(self:&Coordinate,other:&Coordinate)->f64 {
         if self.dot(other).unwrap() < 0.0 {
@@ -108,6 +107,24 @@ pub fn spherical_angle(
     cos_B.acos()
 }
 
+pub fn midpoint(a: &Coordinate, b: &Coordinate) -> Result<Coordinate, &'static str> {
+    let (x1,y1,z1) = a.cart().unwrap();
+    let (x2,y2,z2) = b.cart().unwrap();
+    let x = (x1 + x2)/2.0;
+    let y = (y1 + y2)/2.0;
+    let z = (z1 + z2)/2.0;
+    Coordinate::from_cart(x,y,z)
+}
+
+pub fn length(a: &Coordinate, b: &Coordinate) -> f64 {
+    a.angle_between(b)
+}
+pub fn phihat_dot_nhat(a: &Coordinate, nhat: &Coordinate) -> f64 {
+    let (nx, ny, _) = nhat.cart().unwrap();
+    let phi = a.phi;
+    ny * phi.cos() - nx * phi.sin()
+}
+
 pub struct Edge{
     pub a:Coordinate,
     pub b:Coordinate
@@ -118,7 +135,21 @@ impl Edge{
         Edge{a:a,b:b}
     }
     pub fn len(self:&Edge)->f64{
-        self.a.dist(&self.b)
+        length(&self.a,&self.b)
+    }
+    pub fn midpoint(self:&Edge)->Result<Coordinate,&'static str>{
+        midpoint(&self.a,&self.b)
+    }
+    pub fn get_great_circle(self:&Edge)->GreatCircle{
+        GreatCircle::from_coords(self.a.clone(),self.b.clone())
+    }
+    /// Compute $\hat{\phi} \cdot \hat{n}$ using Simpson's rule
+    pub fn phihat_dot_nhat(self:&Edge)->f64{
+        let nhat = self.get_great_circle().nhat();
+        let f_a = phihat_dot_nhat(&self.a,&nhat);
+        let f_b = phihat_dot_nhat(&self.b,&nhat);
+        let f_mid = phihat_dot_nhat(&self.midpoint().unwrap(),&nhat);
+        self.len()/6.0 * (f_a + f_b + 4.0 * f_mid)
     }
 }
 impl PartialEq for Edge{

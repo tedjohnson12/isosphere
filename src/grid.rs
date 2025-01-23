@@ -4,16 +4,13 @@ use super::coords;
 
 #[derive(Clone)]
 pub struct GridCell{
-    polygon:coords::Polygon,
-    value:f64
+    pub polygon:coords::Polygon,
+    pub value:f64
 }
 
 impl GridCell{
     pub fn new(polygon:coords::Polygon,value:f64)->GridCell{
         GridCell{polygon:polygon,value:value}
-    }
-    pub fn get_neighbors(self:&GridCell,network:&GridNetwork)->Vec<GridCell> {
-        network.query_neighbors(self.clone())
     }
 }
 
@@ -32,31 +29,31 @@ impl GridNetwork{
     pub fn new(cells:Vec<GridCell>)->GridNetwork{
         GridNetwork{cells:cells}
     }
-    pub fn query_node(self:&GridNetwork,node:coords::Coordinate)->Vec<GridCell>{
+    pub fn query_node(self:&GridNetwork,node: &coords::Coordinate)->Vec<&GridCell>{
         // returns a copy of the cells that contain the node
-        let mut cells:Vec<GridCell> = Vec::new();
+        let mut cells:Vec<&GridCell> = Vec::new();
         for cell in self.cells.iter(){
             if cell.polygon.nodes.contains(&node){
-                cells.push(cell.clone());
+                cells.push(cell);
             }
         }
         cells
     }
-    pub fn query_edge(self:&GridNetwork,edge:coords::Edge)->Vec<GridCell>{
+    pub fn query_edge(self:&GridNetwork,edge:&coords::Edge)->Vec<&GridCell>{
         // returns a copy of the cells that contain the edge
-        let mut cells:Vec<GridCell> = Vec::new();
+        let mut cells:Vec<&GridCell> = Vec::new();
         for cell in self.cells.iter(){
             if cell.polygon.to_edges().contains(&edge){
-                cells.push(cell.clone());
+                cells.push(cell);
             }
         }
         cells
     }
-    pub fn query_neighbors(self:&GridNetwork,cell:GridCell)->Vec<GridCell>{
-        // returns a copy of the cells that are neighbors of the cell
-        let mut cells:Vec<GridCell> = Vec::new();
+    pub fn query_neighbors(self:&GridNetwork,cell: &GridCell)->Vec<&GridCell>{
+        // returns references to the cells that are neighbors of the cell
+        let mut cells:Vec<&GridCell> = Vec::new();
         for edge in cell.polygon.to_edges(){
-            let neighbors = self.query_edge(edge);
+            let neighbors = self.query_edge(&edge);
             for neighbor in neighbors{
                 if neighbor != cell{
                     cells.push(neighbor);

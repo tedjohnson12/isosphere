@@ -3,7 +3,8 @@ use std::f64::consts::PI;
 
 pub mod coords;
 pub mod grid;
-mod calculus;
+pub mod geometry;
+pub mod pgen;
 
 fn main() {
     let c1 = coords::Coordinate::new(0.0 ,PI/2.).unwrap();
