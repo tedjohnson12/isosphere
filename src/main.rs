@@ -5,6 +5,7 @@ pub mod coords;
 pub mod grid;
 pub mod geometry;
 pub mod pgen;
+pub mod meshgen;
 
 fn main() {
     let c1 = coords::Coordinate::new(0.0 ,PI/2.).unwrap();

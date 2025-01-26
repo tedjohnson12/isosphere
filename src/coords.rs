@@ -278,3 +278,15 @@ impl PartialEq for Polygon{
         true
     }
 }
+
+pub fn subdivide_polygon(polygon: Polygon) -> Vec<Polygon> {
+    let edges = polygon.to_edges();
+    let centroid = polygon.center();
+    let mut polygons: Vec<Polygon> = Vec::new();
+    for edge in edges.iter() {
+        let a = edge.a;
+        let b = edge.b;
+        polygons.push(Polygon::new(vec![centroid.clone(), a.clone(), b.clone()]));
+    }
+    polygons
+}
