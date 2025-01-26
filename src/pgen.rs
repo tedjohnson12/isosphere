@@ -40,7 +40,22 @@ fn adv_flux_across_edge(edge: &coords::Edge,a: &grid::GridCell,b: &grid::GridCel
         Err("Edge not in polygon b")
     }
     else {
-    Ok((b.value - a.value) * edge.phihat_dot_nhat())
+        let nhat = edge.get_great_circle().nhat();
+        let upwind_i = {
+            if coords::phihat_dot_nhat(&edge.a,&nhat) > 0.0 { a } else { b }
+        };
+        let upwind_m = {
+            if coords::phihat_dot_nhat(&edge.midpoint().unwrap(),&nhat) > 0.0 { a } else { b }
+        };
+        let upwind_f = {
+            if coords::phihat_dot_nhat(&edge.b,&nhat) > 0.0 { a } else { b }
+        };
+
+        let f_i = upwind_i.value * edge.a.theta.sin() * coords::phihat_dot_nhat(&edge.a, &nhat);
+        let f_m = upwind_m.value * edge.midpoint().unwrap().theta.sin() * coords::phihat_dot_nhat(&edge.midpoint().unwrap(), &nhat);
+        let f_f = upwind_f.value * edge.b.theta.sin() * coords::phihat_dot_nhat(&edge.b, &nhat);
+        
+        Ok(edge.len() / 6.0 * (f_i + 4.0*f_m + f_f))  
     }
 }
 
