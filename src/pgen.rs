@@ -1,3 +1,5 @@
+use core::f64;
+
 /// Problem Generator
 /// 
 /// 
@@ -6,11 +8,31 @@ use super::{grid, coords};
 
 static COURANT_NUMBER: f64 = 1.0;
 
-pub fn get_timestep(eps1:f64,eps2:f64)->Result<f64,&'static str> {
-    if eps1 == 0.0 && eps2 == 0.0 {
-        Err("Both eps1 and eps2 are zero")
-    }
-    else { Err("TODO") }
+pub enum CFL_Limiter {
+    AdvectionLimited(f64),
+    DiffusionLimited(f64),
+    SourceLimited(f64),
+    NoLimit(f64)
+}
+
+pub fn get_timestep(eps1:f64,eps2:f64,max_temp:f64,dx:f64)->CFL_Limiter {
+    let adv = {
+        if eps1 == 0.0 { f64::INFINITY }
+        else {COURANT_NUMBER * dx / eps1}
+    };
+    let diff = {
+        if eps2 == 0.0 { f64::INFINITY }
+        else {COURANT_NUMBER * dx.powi(2) / eps2 / 2.0}
+    };
+    let source = {
+        if max_temp == 0.0 { f64::INFINITY }
+        else { COURANT_NUMBER / 4.0 / max_temp.powi(3)}
+    };
+
+    if adv < diff && adv < source { CFL_Limiter::AdvectionLimited(adv) }
+    else if diff < adv && diff < source { CFL_Limiter::DiffusionLimited(diff) }
+    else if source < adv && source < diff { CFL_Limiter::SourceLimited(source) }
+    else { CFL_Limiter::NoLimit(1.0) }
 }
 
 /// max(cos(x),0)
