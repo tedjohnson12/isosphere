@@ -4,6 +4,15 @@
 
 use super::{grid, coords};
 
+static COURANT_NUMBER: f64 = 1.0;
+
+pub fn get_timestep(eps1:f64,eps2:f64)->Result<f64,&'static str> {
+    if eps1 == 0.0 && eps2 == 0.0 {
+        Err("Both eps1 and eps2 are zero")
+    }
+    else { Err("TODO") }
+}
+
 /// max(cos(x),0)
 fn pcos(x:f64)->f64{
     let cos = x.cos();
@@ -69,4 +78,13 @@ pub fn diffusive_flux(p: &grid::GridCell, network: &grid::GridNetwork) -> Result
         flux += diff_flux_across_edge(side,p,neighbor).unwrap();
     }
     Ok(flux)
+}
+
+pub fn get_next_value(p: &grid::GridCell, network: &grid::GridNetwork,eps1: f64, eps2: f64, dt: f64) -> Result<f64,&'static str> {
+    let area = p.polygon.area();
+    let _incident_flux = incident_flux(p) * dt / area;
+    let _thermal_flux = -thermal_flux(p) * dt / area;
+    let _advective_flux = -advective_flux(p,network)? * dt / area * eps1;
+    let _diffusive_flux = diffusive_flux(p,network)? * dt / area * eps2;
+    Ok(p.value + _incident_flux + _thermal_flux + _advective_flux + _diffusive_flux)
 }
