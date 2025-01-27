@@ -16,7 +16,7 @@ impl GreatCircle {
         GreatCircle{ x:x/mag, y:y/mag, z:z/mag }
     }
     pub fn from_coords(a: coords::Coordinate, b: coords::Coordinate) -> GreatCircle {
-        let normal = a.cross(&b).unwrap();
+        let normal = a.cross_normalized(&b).unwrap();
         let mag = normal.dot(&normal).unwrap().sqrt();    
         let (x,y,z) = normal.cart().unwrap();
         GreatCircle{ x:x/mag, y:y/mag, z:z/mag }

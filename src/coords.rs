@@ -3,15 +3,22 @@ use std::f64::consts::PI;
 use std::iter::zip;
 use core::fmt::Display;
 
+use log::{info,warn};
+
 use super::geometry::GreatCircle;
 
-#[derive(PartialEq,Clone,Copy)]
+/// A coordinate in a spherical coordinate system
+#[derive(PartialEq,Clone,Copy,Debug)]
 pub struct Coordinate{
     pub phi:f64,
     pub theta:f64
 }
 
 impl Coordinate{
+    /// Create a new coordinate
+    /// 
+    /// Arguments must not be NaN and satisy
+    /// $\theta \in (0,\pi)$
     pub fn new(phi:f64,theta:f64)->Result<Coordinate,&'static str>{
         if phi.is_nan() { Err("phi is nan") }
         else if theta.is_nan() { Err("theta is nan") }
@@ -19,13 +26,32 @@ impl Coordinate{
         else if theta < 0.0 { Err("theta must be greater than 0.0") }
         else { Ok(Coordinate{phi:phi,theta:theta}) }
     }
+    /// Convert a cartesian coordinate to a spherical coordinate.
+    ///
+    /// Returns `Err` if any of the input arguments are `NaN`.
+    ///
     pub fn from_cart(x:f64,y:f64,z:f64)->Result<Coordinate,&'static str>{
         if x.is_nan() { Err("x is nan in from_cart") }
         else if y.is_nan() { Err("y is nan in from_cart") }
         else if z.is_nan() { Err("z is nan in from_cart") }
-
-        else { Ok(Coordinate::new((x).atan2(y),(z).acos()).unwrap()) }
+        else {
+            let mag = (x*x + y*y + z*z).sqrt();
+            if (1.0 - mag).abs() > 1e-3 { 
+                warn!("Creating coordinate from vector not on unit sphere")
+             }
+            Ok(Coordinate::new((x/mag).atan2(y/mag),(z/mag).acos()).unwrap()) 
+        }
     }
+    /// Converts the spherical coordinate to a Cartesian coordinate.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing a tuple of `(x, y, z)` coordinates if successful,
+    /// or a `String` error message if any of the Cartesian components is `NaN`.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if any of the computed Cartesian components (x, y, or z) is `NaN`.
     pub fn cart(self:&Coordinate)-> Result<(f64,f64,f64),String> {
         let x = self.phi.cos()*self.theta.sin();
         let y = self.phi.sin()*self.theta.sin();
@@ -41,19 +67,28 @@ impl Coordinate{
         if res.is_nan() { Err("NaN in dot product")}
         else { Ok(res) }
     }
-    pub fn cross(self:&Coordinate,other:&Coordinate)->Result<Coordinate,&'static str> {
+    pub fn cross_normalized(self:&Coordinate,other:&Coordinate)->Result<Coordinate,&'static str> {
         let (x1,y1,z1) = self.cart().unwrap();
         let (x2,y2,z2) = other.cart().unwrap();
         let x = y1*z2 - y2*z1;
-        let y = x2*z1 - x1*z2;
+        let y = x1*z2 - x2*z1;
         let z = x1*y2 - x2*y1;
-        Coordinate::from_cart(x,y,z)
+        let mag = (x*x + y*y + z*z).sqrt();
+
+        Coordinate::from_cart(x/mag,y/mag,z/mag)
+    }
+
+    pub fn cross_mag(self:&Coordinate,other:&Coordinate)->f64 {
+        let (x1,y1,z1) = self.cart().unwrap();
+        let (x2,y2,z2) = other.cart().unwrap();
+        let x = y1*z2 - y2*z1;
+        let y = x1*z2 - x2*z1;
+        let z = x1*y2 - x2*y1;
+        (x*x + y*y + z*z).sqrt()
     }
 
     pub fn sin_dist(self:&Coordinate,other:&Coordinate)->f64 {
-        let cross = self.cross(other).unwrap();
-        let (x,y,z) = cross.cart().unwrap();
-        (x*x + y*y + z*z).sqrt()
+        self.cross_mag(other)
     }
     pub fn angle_between(self:&Coordinate,other:&Coordinate)->f64 {
         if self.dot(other).unwrap() < 0.0 {
@@ -113,7 +148,8 @@ pub fn midpoint(a: &Coordinate, b: &Coordinate) -> Result<Coordinate, &'static s
     let x = (x1 + x2)/2.0;
     let y = (y1 + y2)/2.0;
     let z = (z1 + z2)/2.0;
-    Coordinate::from_cart(x,y,z)
+    let mag = (x*x + y*y + z*z).sqrt();
+    Coordinate::from_cart(x/mag,y/mag,z/mag)
 }
 
 pub fn length(a: &Coordinate, b: &Coordinate) -> f64 {
@@ -174,7 +210,7 @@ impl PolyLine{
         edges
     }
 }
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Polygon{
     pub nodes:Vec<Coordinate>
 }
@@ -217,12 +253,13 @@ impl Polygon{
         for edge in self.to_edges(){
             let a = edge.a;
             let b = edge.b;
-            let v = a.cross(&b).unwrap();
+            let v = a.cross_normalized(&b).unwrap();
+            let v_mag = a.cross_mag(&b);
             let angle = a.angle_between(&b);
             let (_x, _y, _z) = v.cart().unwrap();
-            x += _x * angle;
-            y += _y * angle;
-            z += _z * angle;
+            x += _x * angle/2.0;
+            y += _y * angle/2.0;
+            z += _z * angle/2.0;
         }
         let mag = (x*x + y*y + z*z).sqrt();
         Coordinate::from_cart(x/mag,y/mag,z/mag).unwrap()
@@ -232,7 +269,7 @@ impl Polygon{
 impl Display for Polygon{
     fn fmt(self:&Polygon,f:&mut std::fmt::Formatter)->std::fmt::Result{
         let mut s = String::new();
-        s += "Polygon: [";
+        s += &format!("Polygon (Area = {}): [",self.area());
         for node in self.nodes.iter(){
             s += &node.to_string();
             s += ", ";
@@ -280,13 +317,44 @@ impl PartialEq for Polygon{
 }
 
 pub fn subdivide_polygon(polygon: Polygon) -> Vec<Polygon> {
+    let original_area = polygon.area();
     let edges = polygon.to_edges();
+    let n_new_polygons = edges.len();
+    let expected_area = original_area / n_new_polygons as f64;
     let centroid = polygon.center();
     let mut polygons: Vec<Polygon> = Vec::new();
     for edge in edges.iter() {
         let a = edge.a;
         let b = edge.b;
-        polygons.push(Polygon::new(vec![centroid.clone(), a.clone(), b.clone()]));
+        let new_polygon = Polygon::new(vec![centroid.clone(), a.clone(), b.clone()]);
+        let new_area = new_polygon.area();
+        if 1.0 - new_area / expected_area > 0.01 {
+            warn!("Expected area of {} but got {}", expected_area, new_area);
+        }
+        polygons.push(new_polygon);
     }
     polygons
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_subdivide_polygon() {
+        let n_pole = Coordinate::from_cart(0.0, 0.0, 1.0).unwrap();
+        let eq_1 = Coordinate::from_cart(1.0, 0.0, 0.0).unwrap();
+        let eq_2 = Coordinate::from_cart(0.0, 1.0, 0.0).unwrap();
+        let poly = Polygon::new(vec![n_pole, eq_1, eq_2]);
+        let sub = subdivide_polygon(poly.clone());
+        assert_eq!(sub.len(), 3);
+        assert_eq!(sub[0].area(), sub[1].area());
+        assert_eq!(sub[0].area(), sub[2].area());
+
+        let center = poly.center();
+        assert_eq!(sub[0], Polygon::new(vec![center, n_pole, eq_1]));
+        assert_eq!(sub[1], Polygon::new(vec![center, eq_1, eq_2]));
+        assert_eq!(sub[2], Polygon::new(vec![center, eq_2, n_pole]));
+
+        assert!(sub[0].ne(&sub[1]));
+    }
 }

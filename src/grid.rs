@@ -10,6 +10,7 @@ pub struct GridCell{
 
 impl GridCell{
     pub fn new(polygon:coords::Polygon,value:f64)->GridCell{
+        if value < 0.0 {panic!{"Cell value cannot be negative"}}
         GridCell{polygon:polygon,value:value}
     }
 }
@@ -22,7 +23,7 @@ impl PartialEq for GridCell{
 
 
 pub struct GridNetwork{
-    cells:Vec<GridCell>
+    pub cells:Vec<GridCell>
 }
 
 impl GridNetwork{
@@ -69,5 +70,30 @@ impl GridNetwork{
             }
         }
         Result::Err(())
+    }
+    pub fn max_value(self:&GridNetwork)->f64{
+        let mut max:f64 = 0.0;
+        for cell in self.cells.iter(){
+            if cell.value > max{
+                max = cell.value;
+            }
+        }
+        max
+    }
+    pub fn min_value(self:&GridNetwork)->f64{
+        let mut min:f64 = std::f64::MAX;
+        for cell in self.cells.iter(){
+            if cell.value < min{
+                min = cell.value;
+            }
+        }
+        min
+    }
+    pub fn average_value(self:&GridNetwork)->f64{
+        let mut sum:f64 = 0.0;
+        for cell in self.cells.iter(){
+            sum += cell.value;
+        }
+        sum / self.cells.len() as f64
     }
 }

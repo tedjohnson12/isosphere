@@ -2,16 +2,23 @@
 //! 
 //! 
 
+use std::{f64::consts::PI};
+
 use crate::coords::subdivide_polygon;
+use log::{info,warn};
 
 use super::coords;
 
 
 /// From https://danielsieger.com/blog/2021/01/03/generating-platonic-solids.html
 pub fn icoshedron(n_subdivisions: u32) -> Vec<coords::Polygon> {
+    info!("Generating icoshedron with {} subdivisions",n_subdivisions);
     let golden_ratio = (1. + (5. as f64).sqrt()) / 2.0;
     let a = 1.0;
     let b = 1.0/golden_ratio;
+    let mag = (a*a + b*b).sqrt();
+    let a = a/mag;
+    let b = b/mag;
 
     let v1 = coords::Coordinate::from_cart(0.0,b,-a).unwrap();
     let v2 = coords::Coordinate::from_cart(b,a,0.0).unwrap();
@@ -53,15 +60,26 @@ pub fn icoshedron(n_subdivisions: u32) -> Vec<coords::Polygon> {
     }
     else {
         let mut cells = cells;
-        for _ in 0..n_subdivisions {
+        let n_cells = cells.len();
+        let expected_area = 4.0 * PI / (n_cells as f64)/3.0;
+        for i in 0..n_subdivisions {
+            info!("Starting subdivision {}",i);
             let mut new_cells:Vec<coords::Polygon> = Vec::new();
             for cell in cells.iter() {
                 let subdivisions = subdivide_polygon(cell.clone());
                 for s in subdivisions.iter() {
+                    let area = s.area();
+                    if 1.0 - area / expected_area > 0.01 {
+                        warn!("Subdivided cell area is off by {}%",(1.0 - area / expected_area) * 100.0);
+                    }
+
+
+
                     new_cells.push(s.clone());
                 }
             }
             cells = new_cells;
+            info!("There are now {} cells",cells.len());
         }
         cells
     }
